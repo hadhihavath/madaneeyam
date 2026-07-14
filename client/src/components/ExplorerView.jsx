@@ -7,6 +7,7 @@ const ExplorerView = ({
   onUploadClick 
 }) => {
   const {
+    user,
     files,
     stats,
     loading,
@@ -47,7 +48,7 @@ const ExplorerView = ({
     }
   }, [filters.person, setFilters]);
 
-  // Handle local search input debouncing or submit
+  // Handle local search input
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setFilters(prev => ({ ...prev, search: localSearch }));
@@ -105,7 +106,7 @@ const ExplorerView = ({
 
   return (
     <div className="explorer-layout">
-      {/* Explorer Sidebar: Select Person & Category */}
+      {/* Explorer Sidebar */}
       <div className="explorer-sidebar">
         <div>
           <h3 className="explorer-menu-title" style={{ marginBottom: '12px' }}>Assigned Folders</h3>
@@ -187,16 +188,21 @@ const ExplorerView = ({
             )}
           </form>
 
+          {/* Sync / Upload actions only visible to admin */}
           <div className="toolbar-actions">
-            <button className="btn btn-secondary" onClick={syncFiles} title="Rescan Filesystem">
-              <i className="fa-solid fa-rotate"></i> <span className="hide-text-mobile">Sync Files</span>
-            </button>
-            <button 
-              className="btn btn-primary" 
-              onClick={() => onUploadClick(filters.person, filters.category)}
-            >
-              <i className="fa-solid fa-cloud-arrow-up"></i> Upload File
-            </button>
+            {user?.role === 'admin' && (
+              <>
+                <button className="btn btn-secondary" onClick={syncFiles} title="Rescan Filesystem">
+                  <i className="fa-solid fa-rotate"></i> <span className="hide-text-mobile">Sync Files</span>
+                </button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={() => onUploadClick(filters.person, filters.category)}
+                >
+                  <i className="fa-solid fa-cloud-arrow-up"></i> Upload File
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -226,7 +232,7 @@ const ExplorerView = ({
                     <th style={{ width: '120px' }}>Size</th>
                     <th style={{ width: '150px' }}>Status</th>
                     <th style={{ width: '120px' }}>Modified</th>
-                    <th style={{ width: '160px', textAlign: 'right' }}>Actions</th>
+                    <th style={{ width: user?.role === 'admin' ? '160px' : '80px', textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -269,27 +275,33 @@ const ExplorerView = ({
                           >
                             <i className="fa-solid fa-download"></i>
                           </a>
-                          <button 
-                            className="btn-icon" 
-                            title="Edit review status & notes"
-                            onClick={() => onEditClick(file)}
-                          >
-                            <i className="fa-solid fa-pen-to-square"></i>
-                          </button>
-                          <button 
-                            className="btn-icon" 
-                            title="Rename file"
-                            onClick={() => onRenameClick(file)}
-                          >
-                            <i className="fa-solid fa-paragraph"></i>
-                          </button>
-                          <button 
-                            className="btn-icon delete" 
-                            title="Delete file"
-                            onClick={() => handleDelete(file)}
-                          >
-                            <i className="fa-solid fa-trash-can"></i>
-                          </button>
+                          
+                          {/* Write actions only visible to admin */}
+                          {user?.role === 'admin' && (
+                            <>
+                              <button 
+                                className="btn-icon" 
+                                title="Edit review status & notes"
+                                onClick={() => onEditClick(file)}
+                              >
+                                <i className="fa-solid fa-pen-to-square"></i>
+                              </button>
+                              <button 
+                                className="btn-icon" 
+                                title="Rename file"
+                                onClick={() => onRenameClick(file)}
+                              >
+                                <i className="fa-solid fa-paragraph"></i>
+                              </button>
+                              <button 
+                                className="btn-icon delete" 
+                                title="Delete file"
+                                onClick={() => handleDelete(file)}
+                              >
+                                <i className="fa-solid fa-trash-can"></i>
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -334,7 +346,10 @@ const ExplorerView = ({
                     )}
                   </div>
 
-                  <div className="file-mobile-card-actions">
+                  <div 
+                    className="file-mobile-card-actions" 
+                    style={{ gridTemplateColumns: user?.role === 'admin' ? 'repeat(2, 1fr)' : '1fr' }}
+                  >
                     <a 
                       href={getDownloadUrl(file.relPath)}
                       className="btn btn-secondary btn-mobile-action" 
@@ -343,24 +358,30 @@ const ExplorerView = ({
                     >
                       <i className="fa-solid fa-download"></i> Download
                     </a>
-                    <button 
-                      className="btn btn-secondary btn-mobile-action" 
-                      onClick={() => onEditClick(file)}
-                    >
-                      <i className="fa-solid fa-pen-to-square"></i> Notes
-                    </button>
-                    <button 
-                      className="btn btn-secondary btn-mobile-action" 
-                      onClick={() => onRenameClick(file)}
-                    >
-                      <i className="fa-solid fa-paragraph"></i> Rename
-                    </button>
-                    <button 
-                      className="btn btn-secondary btn-mobile-action delete" 
-                      onClick={() => handleDelete(file)}
-                    >
-                      <i className="fa-solid fa-trash-can"></i> Delete
-                    </button>
+                    
+                    {/* Write actions only visible to admin */}
+                    {user?.role === 'admin' && (
+                      <>
+                        <button 
+                          className="btn btn-secondary btn-mobile-action" 
+                          onClick={() => onEditClick(file)}
+                        >
+                          <i className="fa-solid fa-pen-to-square"></i> Notes
+                        </button>
+                        <button 
+                          className="btn btn-secondary btn-mobile-action" 
+                          onClick={() => onRenameClick(file)}
+                        >
+                          <i className="fa-solid fa-paragraph"></i> Rename
+                        </button>
+                        <button 
+                          className="btn btn-secondary btn-mobile-action delete" 
+                          onClick={() => handleDelete(file)}
+                        >
+                          <i className="fa-solid fa-trash-can"></i> Delete
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}

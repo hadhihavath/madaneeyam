@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 
 const SearchView = ({ onEditClick, onRenameClick }) => {
   const {
+    user,
     files,
     filters,
     setFilters,
@@ -183,7 +184,7 @@ const SearchView = ({ onEditClick, onRenameClick }) => {
                   <th style={{ width: '130px' }}>Folder Location</th>
                   <th style={{ width: '100px' }}>Size</th>
                   <th style={{ width: '130px' }}>Status</th>
-                  <th style={{ width: '150px', textAlign: 'right' }}>Actions</th>
+                  <th style={{ width: user?.role === 'admin' ? '150px' : '80px', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -226,27 +227,33 @@ const SearchView = ({ onEditClick, onRenameClick }) => {
                         >
                           <i className="fa-solid fa-download"></i>
                         </a>
-                        <button
-                          className="btn-icon"
-                          title="Edit status & notes"
-                          onClick={() => onEditClick(file)}
-                        >
-                          <i className="fa-solid fa-pen-to-square"></i>
-                        </button>
-                        <button
-                          className="btn-icon"
-                          title="Rename file"
-                          onClick={() => onRenameClick(file)}
-                        >
-                          <i className="fa-solid fa-paragraph"></i>
-                        </button>
-                        <button
-                          className="btn-icon delete"
-                          title="Delete file"
-                          onClick={() => handleDelete(file)}
-                        >
-                          <i className="fa-solid fa-trash-can"></i>
-                        </button>
+                        
+                        {/* Write actions only visible to admin */}
+                        {user?.role === 'admin' && (
+                          <>
+                            <button
+                              className="btn-icon"
+                              title="Edit status & notes"
+                              onClick={() => onEditClick(file)}
+                            >
+                              <i className="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button
+                              className="btn-icon"
+                              title="Rename file"
+                              onClick={() => onRenameClick(file)}
+                            >
+                              <i className="fa-solid fa-paragraph"></i>
+                            </button>
+                            <button
+                              className="btn-icon delete"
+                              title="Delete file"
+                              onClick={() => handleDelete(file)}
+                            >
+                              <i className="fa-solid fa-trash-can"></i>
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -289,7 +296,10 @@ const SearchView = ({ onEditClick, onRenameClick }) => {
                   )}
                 </div>
 
-                <div className="file-mobile-card-actions">
+                <div 
+                  className="file-mobile-card-actions" 
+                  style={{ gridTemplateColumns: user?.role === 'admin' ? 'repeat(2, 1fr)' : '1fr' }}
+                >
                   <a 
                     href={getDownloadUrl(file.relPath)}
                     className="btn btn-secondary btn-mobile-action" 
@@ -298,24 +308,30 @@ const SearchView = ({ onEditClick, onRenameClick }) => {
                   >
                     <i className="fa-solid fa-download"></i> Download
                   </a>
-                  <button 
-                    className="btn btn-secondary btn-mobile-action" 
-                    onClick={() => onEditClick(file)}
-                  >
-                    <i className="fa-solid fa-pen-to-square"></i> Notes
-                  </button>
-                  <button 
-                    className="btn btn-secondary btn-mobile-action" 
-                    onClick={() => onRenameClick(file)}
-                  >
-                    <i className="fa-solid fa-paragraph"></i> Rename
-                  </button>
-                  <button 
-                    className="btn btn-secondary btn-mobile-action delete" 
-                    onClick={() => handleDelete(file)}
-                  >
-                    <i className="fa-solid fa-trash-can"></i> Delete
-                  </button>
+                  
+                  {/* Write actions only visible to admin */}
+                  {user?.role === 'admin' && (
+                    <>
+                      <button 
+                        className="btn btn-secondary btn-mobile-action" 
+                        onClick={() => onEditClick(file)}
+                      >
+                        <i className="fa-solid fa-pen-to-square"></i> Notes
+                      </button>
+                      <button 
+                        className="btn btn-secondary btn-mobile-action" 
+                        onClick={() => onRenameClick(file)}
+                      >
+                        <i className="fa-solid fa-paragraph"></i> Rename
+                      </button>
+                      <button 
+                        className="btn btn-secondary btn-mobile-action delete" 
+                        onClick={() => handleDelete(file)}
+                      >
+                        <i className="fa-solid fa-trash-can"></i> Delete
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}

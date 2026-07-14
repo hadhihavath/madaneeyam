@@ -1,6 +1,9 @@
 import React from 'react';
+import { useApp } from '../context/AppContext';
 
 const Sidebar = ({ activeTab, setActiveTab, isOpen, onClose }) => {
+  const { user, logout } = useApp();
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'fa-solid fa-chart-line' },
     { id: 'explorer', label: 'File Explorer', icon: 'fa-solid fa-folder-open' },
@@ -24,6 +27,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, onClose }) => {
         <span className="logo-english">Madaneeyam</span>
         <span className="logo-sub">Project Manager</span>
       </div>
+
       <ul className="nav-links">
         {menuItems.map(item => (
           <li key={item.id}>
@@ -38,8 +42,32 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, onClose }) => {
           </li>
         ))}
       </ul>
-      <div style={{ marginTop: 'auto', fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', borderTop: '1px solid var(--border-white-light)', paddingTop: '16px' }}>
-        <span>v1.0.0 • Islamic Theme</span>
+
+      {/* User Profile Block */}
+      {user && (
+        <div className="sidebar-profile-card">
+          <div className="profile-avatar">
+            <i className="fa-solid fa-user-shield" style={{ color: user.role === 'admin' ? 'var(--color-gold-bright)' : 'var(--text-muted)' }}></i>
+          </div>
+          <div className="profile-info">
+            <div className="profile-email-text" title={user.email}>{user.email}</div>
+            <div className="profile-role-badge">
+              {user.role === 'admin' ? 'Administrator' : 'Proofreader'}
+            </div>
+          </div>
+          <button 
+            className="btn-profile-logout" 
+            onClick={logout} 
+            title="Log Out"
+            aria-label="Log Out"
+          >
+            <i className="fa-solid fa-power-off"></i>
+          </button>
+        </div>
+      )}
+
+      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', borderTop: '1px solid var(--border-white-light)', paddingTop: '12px', marginTop: '12px' }}>
+        <span>v1.1.0 • Role Access</span>
       </div>
     </div>
   );

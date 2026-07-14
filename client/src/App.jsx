@@ -5,6 +5,7 @@ import DashboardView from './components/DashboardView';
 import ExplorerView from './components/ExplorerView';
 import SearchView from './components/SearchView';
 import InfoView from './components/InfoView';
+import AuthView from './components/AuthView';
 import { EditModal, RenameModal, UploadModal } from './components/Modals';
 
 function MainAppContent() {
@@ -16,7 +17,11 @@ function MainAppContent() {
   const [uploadPerson, setUploadPerson] = useState('');
   const [uploadCategory, setUploadCategory] = useState('');
 
-  const { setFilters } = useApp();
+  const { user, setFilters } = useApp();
+
+  if (!user) {
+    return <AuthView />;
+  }
 
   const handleOpenUpload = (person, category) => {
     setUploadPerson(person || 'Person 1');

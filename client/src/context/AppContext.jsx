@@ -10,6 +10,16 @@ const isStaticMode = typeof window !== 'undefined' &&
   window.location.hostname !== '127.0.0.1';
 
 export const AppProvider = ({ children }) => {
+  // Authentication State
+  const [user, setUser] = useState(() => {
+    try {
+      const data = localStorage.getItem('madaneeyam_current_user');
+      return data ? JSON.parse(data) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
   // Global lists
   const [masterFilesList, setMasterFilesList] = useState([]); // Static mode complete cache
   const [files, setFiles] = useState([]);
@@ -52,6 +62,107 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // Authentication handlers
+  const login = async (email, password) => {
+    const adminEmails = ['hadihavath921@gmail.com', 'hadhihavath921@gmail.com'];
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Verify Admin credentials immediately for fast-track or local bypass
+    if (adminEmails.includes(normalizedEmail) && password === 'Admin@madaneeyam100') {
+      const loggedUser = { email: normalizedEmail, role: 'admin' };
+      setUser(loggedUser);
+      localStorage.setItem('madaneeyam_current_user', JSON.stringify(loggedUser));
+      return { success: true };
+    }
+
+    if (isStaticMode) {
+      try {
+        const storedUsersData = localStorage.getItem('madaneeyam_users');
+        const storedUsers = storedUsersData ? JSON.parse(storedUsersData) : [];
+        const found = storedUsers.find(u => u.email.toLowerCase() === normalizedEmail && u.password === password);
+        
+        if (found) {
+          const loggedUser = { email: found.email, role: found.role };
+          setUser(loggedUser);
+          localStorage.setItem('madaneeyam_current_user', JSON.stringify(loggedUser));
+          return { success: true };
+        } else {
+          return { success: false, error: 'Invalid email or password' };
+        }
+      } catch (e) {
+        return { success: false, error: 'Auth system local storage access error' };
+      }
+    }
+
+    // Local Node API Auth
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+        localStorage.setItem('madaneeyam_current_user', JSON.stringify(data.user));
+        return { success: true };
+      } else {
+        const err = await res.json();
+        return { success: false, error: err.error || 'Invalid credentials' };
+      }
+    } catch (e) {
+      console.error("Local login request failed:", e);
+      return { success: false, error: 'Cannot connect to authentication server' };
+    }
+  };
+
+  const register = async (email, password) => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (isStaticMode) {
+      try {
+        const storedUsersData = localStorage.getItem('madaneeyam_users');
+        const storedUsers = storedUsersData ? JSON.parse(storedUsersData) : [];
+        
+        if (storedUsers.some(u => u.email.toLowerCase() === normalizedEmail) || 
+            normalizedEmail === 'hadihavath921@gmail.com' || 
+            normalizedEmail === 'hadhihavath921@gmail.com') {
+          return { success: false, error: 'User already exists' };
+        }
+
+        const newUser = { email: email.trim(), password, role: 'user' };
+        storedUsers.push(newUser);
+        localStorage.setItem('madaneeyam_users', JSON.stringify(storedUsers));
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: 'Local storage registration write failure' };
+      }
+    }
+
+    // Local Node API Register
+    try {
+      const res = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      if (res.ok) {
+        return { success: true };
+      } else {
+        const err = await res.json();
+        return { success: false, error: err.error || 'Registration failed' };
+      }
+    } catch (e) {
+      console.error("Local registration request failed:", e);
+      return { success: false, error: 'Cannot connect to registration server' };
+    }
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('madaneeyam_current_user');
+  };
+
   // Calculate stats client-side (used in static mode)
   const calculateClientStats = (allFiles) => {
     const total = allFiles.length;
@@ -82,8 +193,10 @@ export const AppProvider = ({ children }) => {
       }
 
       if (f.category) {
-        if (!categoryStats[f.category]) categoryStats[f.category] = { total: 0, completed: 0 };
-        categoryStats[f.category].total++;
+        if (!categoryStats[f.category]) {
+          categoryStats[f.category] = { total: 0, completed: 0 };
+          categoryStats[f.category].total++;
+        }
         if (f.status === 'Completed') categoryStats[f.category].completed++;
       }
     });
@@ -102,10 +215,9 @@ export const AppProvider = ({ children }) => {
     };
   };
 
-  // Fetch Stats from backend (or compute client-side)
+  // Fetch Stats
   const fetchStats = useCallback(async (currentFilesList = masterFilesList) => {
     if (isStaticMode) {
-      // In static mode, calculate stats on the fly
       const overlays = getLocalStorageOverlays();
       const mergedList = currentFilesList.map(f => {
         const overlay = overlays[f.relPath] || {};
@@ -137,14 +249,12 @@ export const AppProvider = ({ children }) => {
     if (isStaticMode) {
       try {
         let rawList = masterFilesList;
-        // If master list isn't loaded yet, fetch it from files_db.json
         if (rawList.length === 0) {
           const dbUrl = `${window.location.origin}${import.meta.env.BASE_URL}files_db.json`;
           const res = await fetch(dbUrl);
           if (res.ok) {
             rawList = await res.json();
             setMasterFilesList(rawList);
-            // Fetch stats using this newly loaded list
             fetchStats(rawList);
           } else {
             console.error("Failed to load static database files_db.json");
@@ -153,7 +263,6 @@ export const AppProvider = ({ children }) => {
           }
         }
 
-        // Apply LocalStorage overrides
         const overlays = getLocalStorageOverlays();
         let merged = rawList.map(f => {
           const overlay = overlays[f.relPath] || {};
@@ -194,7 +303,6 @@ export const AppProvider = ({ children }) => {
         setTotalResults(totalResults);
         setTotalPages(Math.ceil(totalResults / limit) || 1);
 
-        // Paginate slice
         const startIndex = (page - 1) * limit;
         const sliced = merged.slice(startIndex, startIndex + limit);
         setFiles(sliced);
@@ -232,6 +340,10 @@ export const AppProvider = ({ children }) => {
 
   // Sync files
   const syncFiles = async () => {
+    if (user?.role !== 'admin') {
+      alert("Access Denied: Only Administrators can trigger filesystem scans.");
+      return false;
+    }
     if (isStaticMode) {
       alert("System synchronization is unavailable in static web mode. Please run locally to scan disk changes.");
       return false;
@@ -254,8 +366,12 @@ export const AppProvider = ({ children }) => {
 
   // Update file
   const updateFile = async (relPath, updates) => {
+    if (user?.role !== 'admin') {
+      alert("Access Denied: Regular users have read-only access. Only Administrators can update status and notes.");
+      return false;
+    }
+
     if (isStaticMode) {
-      // Save details to localStorage in static mode
       const overlays = getLocalStorageOverlays();
       overlays[relPath] = {
         ...(overlays[relPath] || {}),
@@ -264,7 +380,6 @@ export const AppProvider = ({ children }) => {
       };
       saveLocalStorageOverlays(overlays);
       
-      // Force trigger state refetch to recompute client stats
       fetchStats();
       fetchFiles();
       return true;
@@ -289,6 +404,11 @@ export const AppProvider = ({ children }) => {
 
   // Upload file
   const uploadFile = async (formData) => {
+    if (user?.role !== 'admin') {
+      alert("Access Denied: Only Administrators can upload documents.");
+      return false;
+    }
+
     if (isStaticMode) {
       alert("Uploading new files is disabled in static web mode. Please run locally (via npm run dev) to add files.");
       return false;
@@ -314,6 +434,11 @@ export const AppProvider = ({ children }) => {
 
   // Rename file
   const renameFile = async (relPath, newFilename) => {
+    if (user?.role !== 'admin') {
+      alert("Access Denied: Only Administrators can rename documents.");
+      return false;
+    }
+
     if (isStaticMode) {
       alert("Renaming files on disk is disabled in static web mode. Run locally to perform disk write actions.");
       return false;
@@ -337,6 +462,11 @@ export const AppProvider = ({ children }) => {
 
   // Delete file
   const deleteFile = async (relPath) => {
+    if (user?.role !== 'admin') {
+      alert("Access Denied: Only Administrators can delete documents.");
+      return false;
+    }
+
     if (isStaticMode) {
       alert("Deleting files is disabled in static web mode. Run locally to delete files from your system.");
       return false;
@@ -360,13 +490,17 @@ export const AppProvider = ({ children }) => {
 
   // Trigger reload on filter/search changes
   useEffect(() => {
-    fetchFiles();
-  }, [fetchFiles]);
+    if (user) {
+      fetchFiles();
+    }
+  }, [fetchFiles, user]);
 
   // Initial stats fetch
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    if (user) {
+      fetchStats();
+    }
+  }, [fetchStats, user]);
 
   // Helper to construct download link
   const getDownloadUrl = (relPath) => {
@@ -380,6 +514,10 @@ export const AppProvider = ({ children }) => {
   return (
     <AppContext.Provider value={{
       isStaticMode,
+      user,
+      login,
+      register,
+      logout,
       files,
       stats,
       loading,

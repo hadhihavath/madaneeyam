@@ -15,12 +15,107 @@ app.use(morgan('dev'));
 
 const BASE_DIR = path.resolve(__dirname, 'Divided Files');
 const METADATA_PATH = path.resolve(__dirname, 'scratch', 'metadata.json');
+const USERS_PATH = path.resolve(__dirname, 'scratch', 'users.json');
 
 // Ensure directories exist
 if (!fs.existsSync(BASE_DIR)) {
   fs.mkdirSync(BASE_DIR, { recursive: true });
 }
 fs.mkdirSync(path.dirname(METADATA_PATH), { recursive: true });
+
+// Load users database
+function loadUsers() {
+  if (fs.existsSync(USERS_PATH)) {
+    try {
+      const data = fs.readFileSync(USERS_PATH, 'utf8');
+      return JSON.parse(data);
+    } catch (e) {
+      console.error("Error reading users file, initializing empty:", e);
+      return [];
+    }
+  }
+  return [];
+}
+
+// Save users database
+function saveUsers(users) {
+  try {
+    fs.writeFileSync(USERS_PATH, JSON.stringify(users, null, 2), 'utf8');
+  } catch (e) {
+    console.error("Error writing users file:", e);
+  }
+}
+
+// Seed admin credentials
+function seedAdmin() {
+  const users = loadUsers();
+  const adminEmails = ['hadihavath921@gmail.com', 'hadhihavath921@gmail.com'];
+  let updated = false;
+
+  adminEmails.forEach(email => {
+    const adminExists = users.some(u => u.email.toLowerCase() === email.toLowerCase());
+    if (!adminExists) {
+      users.push({
+        email: email,
+        password: 'Admin@madaneeyam100',
+        role: 'admin'
+      });
+      updated = true;
+      console.log(`Seeded admin credentials for: ${email}`);
+    }
+  });
+
+  if (updated) {
+    saveUsers(users);
+  }
+}
+
+// Perform admin seeding
+seedAdmin();
+
+// API: Register a user
+app.post('/api/auth/register', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  const users = loadUsers();
+  const normalizedEmail = email.trim().toLowerCase();
+  
+  if (users.some(u => u.email.toLowerCase() === normalizedEmail)) {
+    return res.status(400).json({ error: 'User already exists' });
+  }
+
+  const newUser = {
+    email: email.trim(),
+    password: password,
+    role: 'user'
+  };
+
+  users.push(newUser);
+  saveUsers(users);
+
+  res.status(201).json({ success: true, user: { email: newUser.email, role: newUser.role } });
+});
+
+// API: Login a user
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  const users = loadUsers();
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const user = users.find(u => u.email.toLowerCase() === normalizedEmail && u.password === password);
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid email or password' });
+  }
+
+  res.json({ success: true, user: { email: user.email, role: user.role } });
+});
 
 // Load metadata from disk
 function loadMetadata() {
