@@ -371,9 +371,8 @@ export const AppProvider = ({ children }) => {
   // Helper to construct download link
   const getDownloadUrl = (relPath) => {
     if (isStaticMode) {
-      // Build relative path link matching Vite base path `/madaneeyam/Divided Files/...`
-      const base = import.meta.env.BASE_URL || '/';
-      return `${window.location.origin}${base}Divided Files/${relPath}`;
+      const encodedPath = relPath.split('/').map(segment => encodeURIComponent(segment)).join('/');
+      return `https://raw.githubusercontent.com/hadhihavath/madaneeyam/main/Divided Files/${encodedPath}`;
     }
     return `${API_BASE}/files/download?path=${encodeURIComponent(relPath)}`;
   };

@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "predeploy": "vite build",
     "deploy": "gh-pages -d dist",
     "lint": "oxlint",
     "preview": "vite preview"

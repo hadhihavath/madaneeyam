@@ -8,8 +8,8 @@
     "server": "node server.js",
     "client": "npm --prefix client run dev",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "build": "node scripts/build-static-db.js && npm --prefix client run build && node scripts/copy-files.js",
-    "deploy": "node scripts/build-static-db.js && npm --prefix client run build && node scripts/copy-files.js && npm --prefix client run deploy",
+    "build": "node scripts/build-static-db.js && npm --prefix client run build",
+    "deploy": "node scripts/build-static-db.js && npm --prefix client run build && npm --prefix client run deploy",
     "install-all": "npm install && npm --prefix client install"
   },
   "dependencies": {
