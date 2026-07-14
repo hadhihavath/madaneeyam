@@ -1,0 +1,21 @@
+# Node dependency folders
+node_modules/
+client/node_modules/
+
+# Compiled production build directories
+client/dist/
+
+# Editor files & system logs
+.gemini/
+.vscode/
+.idea/
+.DS_Store
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

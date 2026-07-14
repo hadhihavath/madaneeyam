@@ -1,0 +1,24 @@
+{
+  "name": "madaneeyam-project",
+  "version": "1.0.0",
+  "description": "File management system for Madaneeyam Project with an elegant Islamic theme",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "server": "node server.js",
+    "client": "npm --prefix client run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "node scripts/build-static-db.js && npm --prefix client run build && node scripts/copy-files.js",
+    "deploy": "node scripts/build-static-db.js && npm --prefix client run build && node scripts/copy-files.js && npm --prefix client run deploy",
+    "install-all": "npm install && npm --prefix client install"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
