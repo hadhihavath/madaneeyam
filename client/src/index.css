@@ -1220,12 +1220,21 @@ body::before {
   }
 
   /* File Explorer mobile split view */
+  .explorer-layout {
+    min-width: 0;
+  }
+
   .explorer-sidebar {
     background: transparent;
     border: none;
     box-shadow: none;
     padding: 0;
     gap: 16px;
+    min-width: 0;
+  }
+
+  .explorer-layout > div {
+    min-width: 0;
   }
 
   .horizontal-scroll-mobile {
