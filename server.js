@@ -525,6 +525,35 @@ app.delete('/api/files/delete', (req, res) => {
   }
 });
 
+// API: Get all users (Admin only)
+app.get('/api/users', (req, res) => {
+  const users = loadUsers();
+  const safeUsers = users.map(u => ({
+    email: u.email,
+    role: u.role,
+    assignedPerson: u.assignedPerson || ''
+  }));
+  res.json(safeUsers);
+});
+
+// API: Assign user to Person folder (Admin only)
+app.post('/api/users/assign', (req, res) => {
+  const { email, assignedPerson } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
+  }
+
+  const users = loadUsers();
+  const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  user.assignedPerson = assignedPerson || '';
+  saveUsers(users);
+  res.json({ success: true, user: { email: user.email, role: user.role, assignedPerson: user.assignedPerson } });
+});
+
 // Serve frontend build static files in production
 app.use(express.static(path.join(__dirname, 'client', 'dist')));
 app.get('*', (req, res) => {

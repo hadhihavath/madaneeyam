@@ -6,6 +6,7 @@ import ExplorerView from './components/ExplorerView';
 import SearchView from './components/SearchView';
 import InfoView from './components/InfoView';
 import AuthView from './components/AuthView';
+import AdminPanel from './components/AdminPanel';
 import { EditModal, RenameModal, UploadModal } from './components/Modals';
 
 function MainAppContent() {
@@ -55,6 +56,8 @@ function MainAppContent() {
         );
       case 'info':
         return <InfoView />;
+      case 'admin':
+        return <AdminPanel />;
       default:
         return <DashboardView setActiveTab={setActiveTab} setFilters={setFilters} />;
     }

@@ -24,8 +24,11 @@ const ExplorerView = ({
 
   const [localSearch, setLocalSearch] = useState('');
 
-  // Setup options
-  const peopleList = ['Person 1', 'Person 2', 'Person 3', 'Person 4', 'Person 5', 'Person 6', 'Person 7'];
+  // Setup options (filter list based on user role to lock proofreader folders)
+  const activePeopleList = (user && user.role !== 'admin' && user.assignedPerson)
+    ? [user.assignedPerson]
+    : ['Person 1', 'Person 2', 'Person 3', 'Person 4', 'Person 5', 'Person 6', 'Person 7'];
+
   const categoriesList = [
     'Favorites', 
     'ഔറാദുകൾ', 
@@ -41,12 +44,16 @@ const ExplorerView = ({
     'ഹജ്ജ് &ഉംറ'
   ];
 
-  // Set default person and category if not already set
+  // Set default person and category if not already set, enforcing role restrictions
   useEffect(() => {
-    if (!filters.person) {
+    if (user && user.role !== 'admin' && user.assignedPerson) {
+      if (filters.person !== user.assignedPerson) {
+        setFilters(prev => ({ ...prev, person: user.assignedPerson }));
+      }
+    } else if (!filters.person) {
       setFilters(prev => ({ ...prev, person: 'Person 1' }));
     }
-  }, [filters.person, setFilters]);
+  }, [filters.person, setFilters, user]);
 
   // Handle local search input
   const handleSearchSubmit = (e) => {
@@ -111,7 +118,7 @@ const ExplorerView = ({
         <div>
           <h3 className="explorer-menu-title" style={{ marginBottom: '12px' }}>Assigned Folders</h3>
           <ul className="explorer-menu-list horizontal-scroll-mobile">
-            {peopleList.map(p => {
+            {activePeopleList.map(p => {
               const personData = stats?.personStats?.[p] || { total: 0, completed: 0 };
               return (
                 <li 

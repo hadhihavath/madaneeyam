@@ -11,6 +11,10 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, onClose }) => {
     { id: 'info', label: 'Project Info', icon: 'fa-solid fa-circle-info' }
   ];
 
+  if (user?.role === 'admin') {
+    menuItems.push({ id: 'admin', label: 'User Assignments', icon: 'fa-solid fa-users-gear' });
+  }
+
   return (
     <div className={`sidebar ${isOpen ? 'open' : ''}`}>
       {/* Mobile Close Button inside Sidebar */}

@@ -20,6 +20,9 @@ export const AppProvider = ({ children }) => {
     }
   });
 
+  // Admin User List State
+  const [usersList, setUsersList] = useState([]);
+
   // Global lists
   const [masterFilesList, setMasterFilesList] = useState([]); // Static mode complete cache
   const [files, setFiles] = useState([]);
@@ -82,7 +85,7 @@ export const AppProvider = ({ children }) => {
         const found = storedUsers.find(u => u.email.toLowerCase() === normalizedEmail && u.password === password);
         
         if (found) {
-          const loggedUser = { email: found.email, role: found.role };
+          const loggedUser = { email: found.email, role: found.role, assignedPerson: found.assignedPerson || '' };
           setUser(loggedUser);
           localStorage.setItem('madaneeyam_current_user', JSON.stringify(loggedUser));
           return { success: true };
@@ -130,7 +133,7 @@ export const AppProvider = ({ children }) => {
           return { success: false, error: 'User already exists' };
         }
 
-        const newUser = { email: email.trim(), password, role: 'user' };
+        const newUser = { email: email.trim(), password, role: 'user', assignedPerson: '' };
         storedUsers.push(newUser);
         localStorage.setItem('madaneeyam_users', JSON.stringify(storedUsers));
         return { success: true };
@@ -161,6 +164,78 @@ export const AppProvider = ({ children }) => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('madaneeyam_current_user');
+  };
+
+  // Admin functions for user list and folder assignments
+  const fetchUsers = useCallback(async () => {
+    if (user?.role !== 'admin') return;
+
+    if (isStaticMode) {
+      try {
+        const storedUsersData = localStorage.getItem('madaneeyam_users');
+        const storedUsers = storedUsersData ? JSON.parse(storedUsersData) : [];
+        const safeUsers = storedUsers.map(u => ({
+          email: u.email,
+          role: u.role,
+          assignedPerson: u.assignedPerson || ''
+        }));
+        setUsersList(safeUsers);
+      } catch (e) {
+        console.error("Error reading users from local storage:", e);
+      }
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/users`);
+      if (res.ok) {
+        const data = await res.json();
+        setUsersList(data);
+      }
+    } catch (e) {
+      console.error("Error fetching users list from API:", e);
+    }
+  }, [user]);
+
+  const assignUserFolder = async (email, assignedPerson) => {
+    if (user?.role !== 'admin') {
+      alert("Access Denied: Only Administrators can modify user folder assignments.");
+      return false;
+    }
+
+    if (isStaticMode) {
+      try {
+        const storedUsersData = localStorage.getItem('madaneeyam_users');
+        const storedUsers = storedUsersData ? JSON.parse(storedUsersData) : [];
+        const updatedUsers = storedUsers.map(u => {
+          if (u.email.toLowerCase() === email.toLowerCase()) {
+            return { ...u, assignedPerson: assignedPerson || '' };
+          }
+          return u;
+        });
+        localStorage.setItem('madaneeyam_users', JSON.stringify(updatedUsers));
+        fetchUsers();
+        return true;
+      } catch (e) {
+        console.error("Error writing user assignment to local storage:", e);
+        return false;
+      }
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/users/assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, assignedPerson })
+      });
+      if (res.ok) {
+        fetchUsers();
+        return true;
+      }
+    } catch (e) {
+      console.error("Error assigning folder to user:", e);
+    }
+    return false;
   };
 
   // Calculate stats client-side (used in static mode)
@@ -217,9 +292,15 @@ export const AppProvider = ({ children }) => {
 
   // Fetch Stats
   const fetchStats = useCallback(async (currentFilesList = masterFilesList) => {
+    // If a regular user has an assigned folder, filter counts to reflect their folder only on dashboard
+    let targetedList = currentFilesList;
+    if (user && user.role !== 'admin' && user.assignedPerson) {
+      targetedList = currentFilesList.filter(f => f.person === user.assignedPerson);
+    }
+
     if (isStaticMode) {
       const overlays = getLocalStorageOverlays();
-      const mergedList = currentFilesList.map(f => {
+      const mergedList = targetedList.map(f => {
         const overlay = overlays[f.relPath] || {};
         return { ...f, ...overlay };
       });
@@ -230,9 +311,19 @@ export const AppProvider = ({ children }) => {
 
     setStatsLoading(true);
     try {
+      // In local mode, if proofreader has assigned person, we can filter backend stats on client or server. Let's fetch general stats.
       const response = await fetch(`${API_BASE}/stats`);
       if (response.ok) {
-        const data = await response.json();
+        let data = await response.json();
+        if (user && user.role !== 'admin' && user.assignedPerson) {
+          // Filter stats locally for the assigned folder
+          const singlePersonTotal = data.personStats[user.assignedPerson] || { total: 0, completed: 0 };
+          
+          // Recompute basic stats to reflect their assigned folder
+          data.total = singlePersonTotal.total;
+          data.completed = singlePersonTotal.completed;
+          data.completionPercentage = data.total > 0 ? Math.round((data.completed / data.total) * 100) : 0;
+        }
         setStats(data);
       }
     } catch (error) {
@@ -240,12 +331,18 @@ export const AppProvider = ({ children }) => {
     } finally {
       setStatsLoading(false);
     }
-  }, [masterFilesList]);
+  }, [masterFilesList, user]);
 
   // Fetch Files
   const fetchFiles = useCallback(async () => {
     setLoading(true);
     
+    // Role override logic: regular proofreader is forced to view only their assigned folder
+    let activeFilters = { ...filters };
+    if (user && user.role !== 'admin' && user.assignedPerson) {
+      activeFilters.person = user.assignedPerson;
+    }
+
     if (isStaticMode) {
       try {
         let rawList = masterFilesList;
@@ -270,17 +367,17 @@ export const AppProvider = ({ children }) => {
         });
 
         // Filter client-side
-        if (filters.person) {
-          merged = merged.filter(f => f.person === filters.person);
+        if (activeFilters.person) {
+          merged = merged.filter(f => f.person === activeFilters.person);
         }
-        if (filters.category) {
-          merged = merged.filter(f => f.category === filters.category);
+        if (activeFilters.category) {
+          merged = merged.filter(f => f.category === activeFilters.category);
         }
-        if (filters.status) {
-          merged = merged.filter(f => f.status === filters.status);
+        if (activeFilters.status) {
+          merged = merged.filter(f => f.status === activeFilters.status);
         }
-        if (filters.type) {
-          merged = merged.filter(f => f.extension === (filters.type.startsWith('.') ? filters.type : `.${filters.type}`));
+        if (activeFilters.type) {
+          merged = merged.filter(f => f.extension === (activeFilters.type.startsWith('.') ? activeFilters.type : `.${activeFilters.type}`));
         }
         if (search) {
           const q = search.toLowerCase();
@@ -321,7 +418,7 @@ export const AppProvider = ({ children }) => {
         page,
         limit,
         search,
-        ...filters
+        ...activeFilters
       });
       
       const response = await fetch(`${API_BASE}/files?${queryParams.toString()}`);
@@ -336,7 +433,7 @@ export const AppProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search, filters, masterFilesList, fetchStats]);
+  }, [page, limit, search, filters, masterFilesList, fetchStats, user]);
 
   // Sync files
   const syncFiles = async () => {
@@ -366,8 +463,12 @@ export const AppProvider = ({ children }) => {
 
   // Update file
   const updateFile = async (relPath, updates) => {
-    if (user?.role !== 'admin') {
-      alert("Access Denied: Regular users have read-only access. Only Administrators can update status and notes.");
+    // A regular proofreader can ONLY update files if they are assigned to that file's editor folder!
+    const isAuthorized = user?.role === 'admin' || 
+      (user?.role === 'user' && user.assignedPerson && files.some(f => f.relPath === relPath && f.person === user.assignedPerson));
+
+    if (!isAuthorized) {
+      alert("Access Denied: You are not authorized to update notes or status in this directory.");
       return false;
     }
 
@@ -502,6 +603,13 @@ export const AppProvider = ({ children }) => {
     }
   }, [fetchStats, user]);
 
+  // Fetch users list for admin panel
+  useEffect(() => {
+    if (user && user.role === 'admin') {
+      fetchUsers();
+    }
+  }, [fetchUsers, user]);
+
   // Helper to construct download link
   const getDownloadUrl = (relPath) => {
     if (isStaticMode) {
@@ -515,9 +623,12 @@ export const AppProvider = ({ children }) => {
     <AppContext.Provider value={{
       isStaticMode,
       user,
+      usersList,
       login,
       register,
       logout,
+      fetchUsers,
+      assignUserFolder,
       files,
       stats,
       loading,
