@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 
 const SearchView = ({ onEditClick, onRenameClick }) => {
@@ -21,7 +21,6 @@ const SearchView = ({ onEditClick, onRenameClick }) => {
     'Favorites', 'ഔറാദുകൾ', 'ഖസീദ ബൈത്ത്', 'ഖുർആൻ', 'തിരയുക', 'ദിക്ർ ദുആ', 'നിസ്കാരം', 'നോമ്പ്', 'മീലാദ്നബി(സ്വ)', 'മൗലിദ് സീറ', 'സ്വലാത്ത്', 'ഹജ്ജ് &ഉംറ'
   ];
 
-  // Trigger search parameters update
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setFilters(prev => ({ ...prev, search: localSearch }));
@@ -57,6 +56,15 @@ const SearchView = ({ onEditClick, onRenameClick }) => {
     const sizes = ['Bytes', 'KB', 'MB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   const getStatusBadgeClass = (status) => {
@@ -155,7 +163,7 @@ const SearchView = ({ onEditClick, onRenameClick }) => {
         </button>
       </div>
 
-      {/* Results Table */}
+      {/* Results Container */}
       {files.length === 0 ? (
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-white-light)', borderRadius: '20px', padding: '60px 20px', textAlign: 'center' }}>
           <i className="fa-solid fa-magnifying-glass" style={{ fontSize: '3rem', color: 'var(--color-gold)', marginBottom: '16px', opacity: 0.3 }}></i>
@@ -166,83 +174,152 @@ const SearchView = ({ onEditClick, onRenameClick }) => {
         </div>
       ) : (
         <div className="table-container">
-          <table className="file-table">
-            <thead>
-              <tr>
-                <th>File Name</th>
-                <th style={{ width: '130px' }}>Folder Location</th>
-                <th style={{ width: '100px' }}>Size</th>
-                <th style={{ width: '130px' }}>Status</th>
-                <th style={{ width: '150px', textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {files.map(file => (
-                <tr key={file.relPath}>
-                  <td>
-                    <div className="file-name-cell">
-                      <i className={`file-icon ${file.extension === '.pdf' ? 'fa-solid fa-file-pdf pdf' : 'fa-solid fa-file-word docx'}`}></i>
-                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                        <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={file.filename}>
-                          {file.filename}
-                        </span>
-                        {file.notes && (
-                          <span style={{ fontSize: '0.75rem', color: 'var(--color-gold-bright)', fontStyle: 'italic', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                            Note: {file.notes}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', flexDirection: 'column', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      <span>{file.person}</span>
-                      <span>{file.category}</span>
-                    </div>
-                  </td>
-                  <td>{formatSize(file.sizeBytes)}</td>
-                  <td>
-                    <span className={`badge ${getStatusBadgeClass(file.status)}`}>
-                      {file.status}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div className="table-actions" style={{ justifyContent: 'flex-end' }}>
-                      <a
-                        href={getDownloadUrl(file.relPath)}
-                        className="btn-icon"
-                        title="Download file"
-                        download
-                      >
-                        <i className="fa-solid fa-download"></i>
-                      </a>
-                      <button
-                        className="btn-icon"
-                        title="Edit status & notes"
-                        onClick={() => onEditClick(file)}
-                      >
-                        <i className="fa-solid fa-pen-to-square"></i>
-                      </button>
-                      <button
-                        className="btn-icon"
-                        title="Rename file"
-                        onClick={() => onRenameClick(file)}
-                      >
-                        <i className="fa-solid fa-paragraph"></i>
-                      </button>
-                      <button
-                        className="btn-icon delete"
-                        title="Delete file"
-                        onClick={() => handleDelete(file)}
-                      >
-                        <i className="fa-solid fa-trash-can"></i>
-                      </button>
-                    </div>
-                  </td>
+          {/* Desktop Table View */}
+          <div className="desktop-only-table">
+            <table className="file-table">
+              <thead>
+                <tr>
+                  <th>File Name</th>
+                  <th style={{ width: '130px' }}>Folder Location</th>
+                  <th style={{ width: '100px' }}>Size</th>
+                  <th style={{ width: '130px' }}>Status</th>
+                  <th style={{ width: '150px', textAlign: 'right' }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {files.map(file => (
+                  <tr key={file.relPath}>
+                    <td>
+                      <div className="file-name-cell">
+                        <i className={`file-icon ${file.extension === '.pdf' ? 'fa-solid fa-file-pdf pdf' : 'fa-solid fa-file-word docx'}`}></i>
+                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                          <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={file.filename}>
+                            {file.filename}
+                          </span>
+                          {file.notes && (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--color-gold-bright)', fontStyle: 'italic', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              Note: {file.notes}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        <span>{file.person}</span>
+                        <span>{file.category}</span>
+                      </div>
+                    </td>
+                    <td>{formatSize(file.sizeBytes)}</td>
+                    <td>
+                      <span className={`badge ${getStatusBadgeClass(file.status)}`}>
+                        {file.status}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div className="table-actions" style={{ justifyContent: 'flex-end' }}>
+                        <a
+                          href={getDownloadUrl(file.relPath)}
+                          className="btn-icon"
+                          title="Download file"
+                          download
+                        >
+                          <i className="fa-solid fa-download"></i>
+                        </a>
+                        <button
+                          className="btn-icon"
+                          title="Edit status & notes"
+                          onClick={() => onEditClick(file)}
+                        >
+                          <i className="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button
+                          className="btn-icon"
+                          title="Rename file"
+                          onClick={() => onRenameClick(file)}
+                        >
+                          <i className="fa-solid fa-paragraph"></i>
+                        </button>
+                        <button
+                          className="btn-icon delete"
+                          title="Delete file"
+                          onClick={() => handleDelete(file)}
+                        >
+                          <i className="fa-solid fa-trash-can"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Cards View */}
+          <div className="mobile-only-cards">
+            {files.map(file => (
+              <div key={file.relPath} className="file-mobile-card">
+                <div className="file-mobile-card-header">
+                  <div className="file-mobile-card-title-row">
+                    <i className={`file-icon ${file.extension === '.pdf' ? 'fa-solid fa-file-pdf pdf' : 'fa-solid fa-file-word docx'}`}></i>
+                    <span className="file-mobile-card-name" title={file.filename}>{file.filename}</span>
+                  </div>
+                  <span className={`badge ${getStatusBadgeClass(file.status)}`}>
+                    {file.status}
+                  </span>
+                </div>
+                
+                <div className="file-mobile-card-details">
+                  <div className="file-mobile-detail-item">
+                    <span className="detail-label">Location:</span>
+                    <span className="detail-value">{file.person} &gt; {file.category || 'No Category'}</span>
+                  </div>
+                  <div className="file-mobile-detail-item">
+                    <span className="detail-label">Size:</span>
+                    <span className="detail-value">{formatSize(file.sizeBytes)}</span>
+                  </div>
+                  <div className="file-mobile-detail-item">
+                    <span className="detail-label">Modified:</span>
+                    <span className="detail-value">{formatDate(file.modifiedTime)}</span>
+                  </div>
+                  {file.notes && (
+                    <div className="file-mobile-detail-notes">
+                      <strong>Note:</strong> {file.notes}
+                    </div>
+                  )}
+                </div>
+
+                <div className="file-mobile-card-actions">
+                  <a 
+                    href={getDownloadUrl(file.relPath)}
+                    className="btn btn-secondary btn-mobile-action" 
+                    title="Download file"
+                    download
+                  >
+                    <i className="fa-solid fa-download"></i> Download
+                  </a>
+                  <button 
+                    className="btn btn-secondary btn-mobile-action" 
+                    onClick={() => onEditClick(file)}
+                  >
+                    <i className="fa-solid fa-pen-to-square"></i> Notes
+                  </button>
+                  <button 
+                    className="btn btn-secondary btn-mobile-action" 
+                    onClick={() => onRenameClick(file)}
+                  >
+                    <i className="fa-solid fa-paragraph"></i> Rename
+                  </button>
+                  <button 
+                    className="btn btn-secondary btn-mobile-action delete" 
+                    onClick={() => handleDelete(file)}
+                  >
+                    <i className="fa-solid fa-trash-can"></i> Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
 
           {/* Pagination Row */}
           <div className="pagination-container" style={{ padding: '16px 20px', background: 'rgba(0,0,0,0.1)', borderTop: '1px solid var(--border-white-light)' }}>

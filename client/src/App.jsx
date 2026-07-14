@@ -9,6 +9,7 @@ import { EditModal, RenameModal, UploadModal } from './components/Modals';
 
 function MainAppContent() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [editFile, setEditFile] = useState(null);
   const [renameFile, setRenameFile] = useState(null);
   const [showUpload, setShowUpload] = useState(false);
@@ -21,6 +22,11 @@ function MainAppContent() {
     setUploadPerson(person || 'Person 1');
     setUploadCategory(category || 'Favorites');
     setShowUpload(true);
+  };
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setIsSidebarOpen(false); // Auto-close sidebar on mobile
   };
 
   const renderContent = () => {
@@ -51,7 +57,34 @@ function MainAppContent() {
 
   return (
     <div className="app-container">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      {/* Mobile Top Header */}
+      <header className="mobile-header">
+        <div className="mobile-header-logo">
+          <span className="mobile-logo-text">مَدَنِيَّمْ</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--color-gold)', marginLeft: '8px', fontFamily: 'var(--font-display)', fontWeight: 'bold' }}>PROJECT</span>
+        </div>
+        <button 
+          className="mobile-menu-toggle" 
+          onClick={() => setIsSidebarOpen(true)}
+          aria-label="Toggle Sidebar Menu"
+        >
+          <i className="fa-solid fa-bars"></i>
+        </button>
+      </header>
+
+      {/* Sidebar Backdrop Overlay on Mobile */}
+      {isSidebarOpen && (
+        <div className="sidebar-backdrop" onClick={() => setIsSidebarOpen(false)}></div>
+      )}
+
+      {/* Sidebar Component with open/close triggers */}
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={handleTabChange} 
+        isOpen={isSidebarOpen} 
+        onClose={() => setIsSidebarOpen(false)}
+      />
+
       <main className="main-content">
         {renderContent()}
       </main>
