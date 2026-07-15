@@ -211,7 +211,7 @@ export const UploadModal = ({ defaultPerson, defaultCategory, onClose }) => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Select Document (.pdf, .docx)</label>
+              <label className="form-label">Select Document (.pdf)</label>
               <div className="file-drag-area" onClick={() => document.getElementById('file-upload-input').click()}>
                 <i className="fa-solid fa-cloud-arrow-up file-drag-icon"></i>
                 {selectedFile ? (
@@ -225,14 +225,14 @@ export const UploadModal = ({ defaultPerson, defaultCategory, onClose }) => {
                   <div>
                     <strong style={{ color: 'var(--text-secondary)' }}>Click to browse files</strong>
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      Supports Word (.docx) or PDF (.pdf) formats
+                      Supports PDF (.pdf) format
                     </p>
                   </div>
                 )}
                 <input 
                   id="file-upload-input"
                   type="file" 
-                  accept=".pdf,.docx"
+                  accept=".pdf"
                   onChange={handleFileChange}
                   style={{ display: 'none' }}
                   disabled={uploading}

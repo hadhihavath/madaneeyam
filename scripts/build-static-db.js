@@ -29,6 +29,7 @@ function scanDirectory(basePath) {
         const ext = path.extname(filename).toLowerCase();
         
         if (filename.startsWith('~$') || filename.startsWith('.')) return;
+        if (ext === '.docx') return;
 
         fileList.push({
           relPath,

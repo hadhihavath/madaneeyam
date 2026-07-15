@@ -163,8 +163,9 @@ function scanDirectory(basePath) {
         const filename = parts[parts.length - 1];
         const ext = path.extname(filename).toLowerCase();
         
-        // Skip temporary files
+        // Skip temporary files and Word documents (.docx) for now
         if (filename.startsWith('~$') || filename.startsWith('.')) return;
+        if (ext === '.docx') return;
 
         fileList.append = fileList.push({
           relPath,
