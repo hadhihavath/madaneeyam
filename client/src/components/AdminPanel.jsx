@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 
 const FolderRenameCard = ({ personName }) => {
@@ -117,8 +117,12 @@ const FolderRenameCard = ({ personName }) => {
 };
 
 const AdminPanel = () => {
-  const { usersList, assignUserFolder, isStaticMode, peopleList } = useApp();
+  const { usersList, assignUserFolder, isStaticMode, peopleList, fetchUsers } = useApp();
   const [updatingUser, setUpdatingUser] = useState(null);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const dropdownPeopleList = [
     { value: '', label: 'Unassigned (None)' },
