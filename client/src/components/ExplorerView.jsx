@@ -260,8 +260,13 @@ const ExplorerView = ({
                               </span>
                             )}
                             {file.notes && (
-                              <span style={{ fontSize: '0.75rem', color: 'var(--color-gold-bright)', fontStyle: 'italic', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--color-gold-bright)', fontStyle: 'italic', marginTop: '2px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                                 Note: {file.notes}
+                              </span>
+                            )}
+                            {file.remarks && (
+                              <span style={{ fontSize: '0.75rem', color: '#ffbd59', fontStyle: 'italic', marginTop: '2px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                Remark: {file.remarks}
                               </span>
                             )}
                           </div>
@@ -359,6 +364,11 @@ const ExplorerView = ({
                     {file.notes && (
                       <div className="file-mobile-detail-notes">
                         <strong>Note:</strong> {file.notes}
+                      </div>
+                    )}
+                    {file.remarks && (
+                      <div className="file-mobile-detail-notes" style={{ borderLeftColor: '#ffbd59', background: 'rgba(255, 189, 89, 0.05)' }}>
+                        <strong>Remark:</strong> {file.remarks}
                       </div>
                     )}
                   </div>

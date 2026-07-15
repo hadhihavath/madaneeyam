@@ -179,6 +179,7 @@ function loadLocalMetadataOnly() {
         custom[key] = {
           status: fullDb[key].status,
           notes: fullDb[key].notes,
+          remarks: fullDb[key].remarks || '',
           tags: fullDb[key].tags || []
         };
       });
@@ -206,6 +207,7 @@ async function loadMetadata() {
         dbCustom[item.rel_path] = {
           status: item.status,
           notes: item.notes,
+          remarks: item.remarks || '',
           tags: item.tags || []
         };
       });
@@ -233,6 +235,7 @@ async function loadMetadata() {
       modifiedTime: file.modifiedTime,
       status: custom.status || 'Todo',
       notes: custom.notes || '',
+      remarks: custom.remarks || '',
       tags: custom.tags || []
     };
   });
@@ -247,7 +250,8 @@ async function saveMetadata(metadata) {
       const items = Object.values(metadata).map(item => ({
         rel_path: item.relPath,
         status: item.status,
-        notes: item.notes,
+        notes: item.notes || '',
+        remarks: item.remarks || '',
         tags: item.tags || []
       }));
       const { error } = await supabase.from('file_metadata').upsert(items);
@@ -467,7 +471,8 @@ app.get('/api/files', async (req, res) => {
       f.filename.toLowerCase().includes(q) || 
       (f.category && f.category.toLowerCase().includes(q)) ||
       (f.subcategory && f.subcategory.toLowerCase().includes(q)) ||
-      (f.notes && f.notes.toLowerCase().includes(q))
+      (f.notes && f.notes.toLowerCase().includes(q)) ||
+      (f.remarks && f.remarks.toLowerCase().includes(q))
     );
   }
 
@@ -499,9 +504,9 @@ app.get('/api/files', async (req, res) => {
   });
 });
 
-// API: Update file metadata (status, notes)
+// API: Update file metadata (status, notes, remarks)
 app.put('/api/files', async (req, res) => {
-  const { relPath, status, notes, tags } = req.body;
+  const { relPath, status, notes, remarks, tags } = req.body;
   if (!relPath) {
     return res.status(400).json({ error: "Missing file relative path" });
   }
@@ -513,6 +518,7 @@ app.put('/api/files', async (req, res) => {
 
   if (status !== undefined) db[relPath].status = status;
   if (notes !== undefined) db[relPath].notes = notes;
+  if (remarks !== undefined) db[relPath].remarks = remarks;
   if (tags !== undefined) db[relPath].tags = tags;
   db[relPath].lastUpdated = new Date();
 

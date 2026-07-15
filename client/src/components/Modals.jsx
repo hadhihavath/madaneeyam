@@ -3,15 +3,18 @@ import { useApp } from '../context/AppContext';
 import { renderAsync } from 'docx-preview';
 
 export const EditModal = ({ file, onClose }) => {
-  const { updateFile } = useApp();
+  const { updateFile, user } = useApp();
   const [status, setStatus] = useState(file.status || 'Todo');
   const [notes, setNotes] = useState(file.notes || '');
+  const [remarks, setRemarks] = useState(file.remarks || '');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const success = await updateFile(file.relPath, { status, notes });
+    const success = await updateFile(file.relPath, { status, notes, remarks });
     if (success) onClose();
   };
+
+  const isAdmin = user?.role === 'admin';
 
   return (
     <div className="modal-overlay">
@@ -40,14 +43,38 @@ export const EditModal = ({ file, onClose }) => {
               </select>
             </div>
 
+            {/* Admin Remarks Section */}
             <div className="form-group">
-              <label className="form-label">Reviewer Notes / Corrections</label>
-              <textarea 
-                className="form-textarea"
-                placeholder="Log any spelling corrections, missing pages, or verification comments..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
+              <label className="form-label">Admin Remarks</label>
+              {isAdmin ? (
+                <textarea 
+                  className="form-textarea"
+                  placeholder="Enter administrative instructions, feedback, or corrections..."
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                />
+              ) : (
+                <div style={{ padding: '12px', background: 'rgba(0, 0, 0, 0.2)', border: '1px solid var(--border-white-light)', borderRadius: '6px', fontSize: '0.9rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', minHeight: '40px' }}>
+                  {file.remarks || <span style={{ fontStyle: 'italic', opacity: 0.7 }}>No remarks from administrator.</span>}
+                </div>
+              )}
+            </div>
+
+            {/* Proofreader Notes Section */}
+            <div className="form-group">
+              <label className="form-label">Proofreader Notes / Corrections</label>
+              {!isAdmin ? (
+                <textarea 
+                  className="form-textarea"
+                  placeholder="Log any spelling corrections, missing pages, or verification comments..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              ) : (
+                <div style={{ padding: '12px', background: 'rgba(0, 0, 0, 0.2)', border: '1px solid var(--border-white-light)', borderRadius: '6px', fontSize: '0.9rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', minHeight: '40px' }}>
+                  {file.notes || <span style={{ fontStyle: 'italic', opacity: 0.7 }}>No notes logged by proofreaders yet.</span>}
+                </div>
+              )}
             </div>
           </div>
           <div className="modal-footer">
