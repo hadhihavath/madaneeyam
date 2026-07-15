@@ -410,6 +410,31 @@ app.get('/api/files/download', (req, res) => {
   res.download(safePath, path.basename(safePath));
 });
 
+// API: View file inline (useful for PDF/Docx view in iframe)
+app.get('/api/files/view', (req, res) => {
+  const { path: relPath } = req.query;
+  if (!relPath) {
+    return res.status(400).json({ error: "Missing file path" });
+  }
+
+  const safePath = getSafePath(relPath);
+  if (!safePath || !fs.existsSync(safePath)) {
+    return res.status(404).json({ error: "File not found on disk" });
+  }
+
+  const ext = path.extname(safePath).toLowerCase();
+  let contentType = 'application/octet-stream';
+  if (ext === '.pdf') {
+    contentType = 'application/pdf';
+  } else if (ext === '.docx') {
+    contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  }
+
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Content-Disposition', 'inline');
+  res.sendFile(safePath);
+});
+
 // Multer storage configuration for uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {

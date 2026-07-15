@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
+import { renderAsync } from 'docx-preview';
 
 export const EditModal = ({ file, onClose }) => {
   const { updateFile } = useApp();
@@ -246,6 +247,133 @@ export const UploadModal = ({ defaultPerson, defaultCategory, onClose }) => {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+};
+
+export const ViewerModal = ({ file, onClose }) => {
+  const { getViewUrl, getDownloadUrl } = useApp();
+  const containerRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const isPdf = file.extension === '.pdf';
+  const isDocx = file.extension === '.docx';
+  const viewUrl = getViewUrl(file.relPath);
+
+  useEffect(() => {
+    if (isDocx && containerRef.current) {
+      setLoading(true);
+      setError(null);
+      containerRef.current.innerHTML = ""; // Clear any previous contents
+
+      fetch(viewUrl)
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to load document");
+          return res.blob();
+        })
+        .then(blob => {
+          // Render DOCX dynamically using docx-preview
+          return renderAsync(blob, containerRef.current, null, {
+            className: "docx-preview-body",
+            inWrapper: false
+          });
+        })
+        .then(() => {
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error("Docx render error:", err);
+          setError("Failed to load/render Word document. You can still download the file using the button below.");
+          setLoading(false);
+        });
+    }
+  }, [viewUrl, isDocx]);
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 1100 }}>
+      <div className="modal-content" style={{ maxWidth: '1000px', width: '95vw', height: '90vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
+        <div className="modal-header" style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-light)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <i className={`file-icon ${isPdf ? 'fa-solid fa-file-pdf pdf' : 'fa-solid fa-file-word docx'}`} style={{ fontSize: '1.25rem' }}></i>
+            <h3 className="modal-title" style={{ fontSize: '1.1rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '60vw' }} title={file.filename}>
+              {file.filename}
+            </h3>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Close Viewer">&times;</button>
+        </div>
+
+        <div className="modal-body" style={{ flexGrow: 1, padding: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', background: 'var(--bg-app)' }}>
+          {isPdf ? (
+            <iframe 
+              src={`${viewUrl}#toolbar=1`} 
+              width="100%" 
+              height="100%" 
+              style={{ border: 'none', background: 'var(--bg-app)' }} 
+              title={file.filename}
+            />
+          ) : isDocx ? (
+            <div style={{ flexGrow: 1, overflow: 'auto', padding: '24px', display: 'flex', justifyContent: 'center', background: '#e0e0e0' }}>
+              <div 
+                ref={containerRef}
+                style={{ 
+                  background: '#ffffff', 
+                  color: '#333333', 
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)', 
+                  borderRadius: '8px', 
+                  width: '100%', 
+                  maxWidth: '850px', 
+                  minHeight: '100%', 
+                  padding: '40px',
+                  boxSizing: 'border-box'
+                }}
+              >
+                {loading && (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', flexDirection: 'column', gap: '16px', color: 'var(--text-muted)' }}>
+                    <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: '2rem', color: 'var(--color-gold)' }}></i>
+                    <span>Parsing Word document layout...</span>
+                  </div>
+                )}
+                {error && (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', flexDirection: 'column', gap: '16px', padding: '20px', textAlign: 'center', color: '#ff4d4d' }}>
+                    <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: '2.5rem' }}></i>
+                    <p style={{ fontWeight: '500' }}>{error}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', flexDirection: 'column', gap: '16px', color: 'var(--text-secondary)' }}>
+              <i className="fa-solid fa-file-excel" style={{ fontSize: '3rem' }}></i>
+              <span>Preview unavailable for this file type. Please download to view.</span>
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer" style={{ padding: '12px 24px', borderTop: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)' }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            Status: <span className={`badge ${file.status === 'Completed' ? 'badge-completed' : file.status === 'In Progress' ? 'badge-inprogress' : file.status === 'Under Review' ? 'badge-review' : 'badge-todo'}`} style={{ fontSize: '0.75rem', marginLeft: '4px' }}>{file.status}</span>
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <a 
+              href={getDownloadUrl(file.relPath)}
+              className="btn btn-secondary"
+              style={{ fontSize: '0.85rem', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.05)', color: 'var(--color-gold)' }}
+              download
+            >
+              <i className="fa-solid fa-download"></i> Download File
+            </a>
+            <button 
+              type="button" 
+              className="btn btn-gold" 
+              onClick={onClose}
+              style={{ fontSize: '0.85rem', padding: '6px 20px' }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

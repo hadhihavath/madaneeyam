@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "docx-preview": "^0.4.0",
     "madaneeyam-project": "file:..",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

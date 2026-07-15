@@ -719,6 +719,15 @@ export const AppProvider = ({ children }) => {
     return `${API_BASE}/files/download?path=${encodeURIComponent(relPath)}`;
   };
 
+  // Helper to construct inline view link
+  const getViewUrl = (relPath) => {
+    if (isStaticMode) {
+      const encodedPath = relPath.split('/').map(segment => encodeURIComponent(segment)).join('/');
+      return `https://raw.githubusercontent.com/hadhihavath/madaneeyam/main/Divided Files/${encodedPath}`;
+    }
+    return `${API_BASE}/files/view?path=${encodeURIComponent(relPath)}`;
+  };
+
   return (
     <AppContext.Provider value={{
       isStaticMode,
@@ -751,6 +760,7 @@ export const AppProvider = ({ children }) => {
       renameFile,
       deleteFile,
       getDownloadUrl,
+      getViewUrl,
       peopleList,
       renamePerson
     }}>

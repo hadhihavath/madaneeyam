@@ -7,13 +7,14 @@ import SearchView from './components/SearchView';
 import InfoView from './components/InfoView';
 import AuthView from './components/AuthView';
 import AdminPanel from './components/AdminPanel';
-import { EditModal, RenameModal, UploadModal } from './components/Modals';
+import { EditModal, RenameModal, UploadModal, ViewerModal } from './components/Modals';
 
 function MainAppContent() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [editFile, setEditFile] = useState(null);
   const [renameFile, setRenameFile] = useState(null);
+  const [viewFile, setViewFile] = useState(null);
   const [showUpload, setShowUpload] = useState(false);
   const [uploadPerson, setUploadPerson] = useState('');
   const [uploadCategory, setUploadCategory] = useState('');
@@ -45,6 +46,7 @@ function MainAppContent() {
             onEditClick={setEditFile} 
             onRenameClick={setRenameFile} 
             onUploadClick={handleOpenUpload}
+            onViewClick={setViewFile}
           />
         );
       case 'search':
@@ -52,6 +54,7 @@ function MainAppContent() {
           <SearchView 
             onEditClick={setEditFile} 
             onRenameClick={setRenameFile} 
+            onViewClick={setViewFile}
           />
         );
       case 'info':
@@ -103,6 +106,10 @@ function MainAppContent() {
 
       {renameFile && (
         <RenameModal file={renameFile} onClose={() => setRenameFile(null)} />
+      )}
+
+      {viewFile && (
+        <ViewerModal file={viewFile} onClose={() => setViewFile(null)} />
       )}
 
       {showUpload && (

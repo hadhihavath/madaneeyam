@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 
-const SearchView = ({ onEditClick, onRenameClick }) => {
+const SearchView = ({ onEditClick, onRenameClick, onViewClick }) => {
   const {
     user,
     files,
@@ -218,6 +218,14 @@ const SearchView = ({ onEditClick, onRenameClick }) => {
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div className="table-actions" style={{ justifyContent: 'flex-end' }}>
+                        <button
+                          type="button"
+                          className="btn-icon"
+                          title="View document inline"
+                          onClick={() => onViewClick(file)}
+                        >
+                          <i className="fa-solid fa-eye"></i>
+                        </button>
                         <a
                           href={getDownloadUrl(file.relPath)}
                           className="btn-icon"
@@ -297,8 +305,15 @@ const SearchView = ({ onEditClick, onRenameClick }) => {
 
                 <div 
                   className="file-mobile-card-actions" 
-                  style={{ gridTemplateColumns: user?.role === 'admin' ? 'repeat(2, 1fr)' : '1fr' }}
+                  style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}
                 >
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary btn-mobile-action" 
+                    onClick={() => onViewClick(file)}
+                  >
+                    <i className="fa-solid fa-eye"></i> View
+                  </button>
                   <a 
                     href={getDownloadUrl(file.relPath)}
                     className="btn btn-secondary btn-mobile-action" 
