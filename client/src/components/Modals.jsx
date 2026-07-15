@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 
 export const EditModal = ({ file, onClose }) => {
@@ -122,14 +122,12 @@ export const RenameModal = ({ file, onClose }) => {
 };
 
 export const UploadModal = ({ defaultPerson, defaultCategory, onClose }) => {
-  const { uploadFile } = useApp();
-  const [person, setPerson] = useState(defaultPerson || 'Person 1');
+  const { uploadFile, peopleList } = useApp();
+  const [person, setPerson] = useState(defaultPerson || peopleList[0] || 'Person 1');
   const [category, setCategory] = useState(defaultCategory || 'Favorites');
   const [subcategory, setSubcategory] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-
-  const peopleList = ['Person 1', 'Person 2', 'Person 3', 'Person 4', 'Person 5', 'Person 6', 'Person 7'];
   const categoriesList = [
     'Favorites', 'ഔറാദുകൾ', 'ഖസീദ ബൈത്ത്', 'ഖുർആൻ', 'തിരയുക', 'ദിക്ർ ദുആ', 'നിസ്കാരം', 'നോമ്പ്', 'മീലാദ്നബി(സ്വ)', 'മൗലിദ് സീറ', 'സ്വലാത്ത്', 'ഹജ്ജ് &ഉംറ'
   ];

@@ -12,12 +12,11 @@ const SearchView = ({ onEditClick, onRenameClick }) => {
     totalPages,
     totalResults,
     deleteFile,
-    getDownloadUrl
+    getDownloadUrl,
+    peopleList
   } = useApp();
 
   const [localSearch, setLocalSearch] = useState(filters.search || '');
-
-  const peopleList = ['Person 1', 'Person 2', 'Person 3', 'Person 4', 'Person 5', 'Person 6', 'Person 7'];
   const categoriesList = [
     'Favorites', 'ഔറാദുകൾ', 'ഖസീദ ബൈത്ത്', 'ഖുർആൻ', 'തിരയുക', 'ദിക്ർ ദുആ', 'നിസ്കാരം', 'നോമ്പ്', 'മീലാദ്നബി(സ്വ)', 'മൗലിദ് സീറ', 'സ്വലാത്ത്', 'ഹജ്ജ് &ഉംറ'
   ];

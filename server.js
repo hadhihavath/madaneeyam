@@ -554,9 +554,85 @@ app.post('/api/users/assign', (req, res) => {
   res.json({ success: true, user: { email: user.email, role: user.role, assignedPerson: user.assignedPerson } });
 });
 
+// API: Rename a person folder (Admin only)
+app.post('/api/people/rename', (req, res) => {
+  const { oldName, newName } = req.body;
+  if (!oldName || !newName) {
+    return res.status(400).json({ error: "Missing oldName or newName" });
+  }
+
+  const oldPath = path.join(BASE_DIR, oldName);
+  const newPath = path.join(BASE_DIR, newName);
+
+  if (!oldPath.startsWith(BASE_DIR) || !newPath.startsWith(BASE_DIR)) {
+    return res.status(400).json({ error: "Invalid path arguments" });
+  }
+
+  if (!fs.existsSync(oldPath)) {
+    return res.status(404).json({ error: `Folder '${oldName}' does not exist on disk` });
+  }
+
+  if (fs.existsSync(newPath)) {
+    return res.status(400).json({ error: `Folder '${newName}' already exists on disk` });
+  }
+
+  try {
+    // Rename directory on disk
+    fs.renameSync(oldPath, newPath);
+
+    // Update metadata.json database keys and values
+    const db = loadMetadata();
+    const updatedDb = {};
+    Object.keys(db).forEach(key => {
+      if (key.startsWith(oldName + '/')) {
+        const newKey = key.replace(oldName + '/', newName + '/');
+        const fileData = { ...db[key] };
+        fileData.relPath = newKey;
+        fileData.person = newName;
+        updatedDb[newKey] = fileData;
+      } else {
+        updatedDb[key] = db[key];
+      }
+    });
+    saveMetadata(updatedDb);
+
+    // Update users.json assignments
+    const users = loadUsers();
+    let usersUpdated = false;
+    users.forEach(u => {
+      if (u.assignedPerson === oldName) {
+        u.assignedPerson = newName;
+        usersUpdated = true;
+      }
+    });
+    if (usersUpdated) {
+      saveUsers(users);
+    }
+
+    // Force filesystem scan cache refresh
+    cachedMetadata = syncFilesystem();
+
+    res.json({ success: true, message: `Successfully renamed folder '${oldName}' to '${newName}'` });
+  } catch (err) {
+    console.error("Error renaming person folder:", err);
+    res.status(500).json({ error: "Failed to rename folder on disk" });
+  }
+});
+
+
 // Serve frontend build static files in production
-app.use(express.static(path.join(__dirname, 'client', 'dist')));
+app.use('/madaneeyam', express.static(path.join(__dirname, 'client', 'dist')));
+
+// Redirect root request to subfolder for Vite base path compatibility
+app.get('/', (req, res) => {
+  res.redirect('/madaneeyam/');
+});
+
 app.get('*', (req, res) => {
+  // If the request is for a static file that is missing, return 404 instead of index.html
+  if (path.extname(req.path)) {
+    return res.status(404).send("File not found");
+  }
   const indexHTML = path.join(__dirname, 'client', 'dist', 'index.html');
   if (fs.existsSync(indexHTML)) {
     res.sendFile(indexHTML);

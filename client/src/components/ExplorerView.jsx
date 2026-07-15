@@ -19,7 +19,8 @@ const ExplorerView = ({
     totalResults,
     syncFiles,
     deleteFile,
-    getDownloadUrl
+    getDownloadUrl,
+    peopleList
   } = useApp();
 
   const [localSearch, setLocalSearch] = useState('');
@@ -27,7 +28,7 @@ const ExplorerView = ({
   // Setup options (filter list based on user role to lock proofreader folders)
   const activePeopleList = (user && user.role !== 'admin' && user.assignedPerson)
     ? [user.assignedPerson]
-    : ['Person 1', 'Person 2', 'Person 3', 'Person 4', 'Person 5', 'Person 6', 'Person 7'];
+    : peopleList;
 
   const categoriesList = [
     'Favorites', 

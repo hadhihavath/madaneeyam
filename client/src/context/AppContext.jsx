@@ -2,12 +2,14 @@ import React, { createContext, useState, useEffect, useContext, useCallback } fr
 
 const AppContext = createContext();
 
-const API_BASE = 'http://localhost:5000/api';
-
-// Detect if we are running in static mode (GitHub Pages) or dynamic mode (Localhost backend)
+// Detect if we are running in static mode (GitHub Pages) or dynamic mode (Localhost/Render backend)
 const isStaticMode = typeof window !== 'undefined' && 
-  window.location.hostname !== 'localhost' && 
-  window.location.hostname !== '127.0.0.1';
+  window.location.hostname.includes('github.io');
+
+const API_BASE = typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:5000/api'
+    : `${window.location.origin}/api`;
 
 export const AppProvider = ({ children }) => {
   // Authentication State
@@ -44,6 +46,9 @@ export const AppProvider = ({ children }) => {
   const [limit, setLimit] = useState(25);
   const [totalPages, setTotalPages] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
+
+  // Dynamic list of people/folders
+  const [peopleList, setPeopleList] = useState(['Person 1', 'Person 2', 'Person 3', 'Person 4', 'Person 5', 'Person 6', 'Person 7']);
 
   // Helper to load localStorage overlays in static mode
   const getLocalStorageOverlays = () => {
@@ -292,18 +297,22 @@ export const AppProvider = ({ children }) => {
 
   // Fetch Stats
   const fetchStats = useCallback(async (currentFilesList = masterFilesList) => {
-    // If a regular user has an assigned folder, filter counts to reflect their folder only on dashboard
-    let targetedList = currentFilesList;
-    if (user && user.role !== 'admin' && user.assignedPerson) {
-      targetedList = currentFilesList.filter(f => f.person === user.assignedPerson);
-    }
-
     if (isStaticMode) {
       const overlays = getLocalStorageOverlays();
-      const mergedList = targetedList.map(f => {
+      const storedRenames = localStorage.getItem('madaneeyam_renames');
+      const renames = storedRenames ? JSON.parse(storedRenames) : {};
+
+      let mergedList = currentFilesList.map(f => {
         const overlay = overlays[f.relPath] || {};
-        return { ...f, ...overlay };
+        const mappedPerson = renames[f.person] || f.person;
+        return { ...f, ...overlay, person: mappedPerson };
       });
+
+      // Filter by assigned person if user is restricted
+      if (user && user.role !== 'admin' && user.assignedPerson) {
+        mergedList = mergedList.filter(f => f.person === user.assignedPerson);
+      }
+
       const computedStats = calculateClientStats(mergedList);
       setStats(computedStats);
       return;
@@ -361,9 +370,13 @@ export const AppProvider = ({ children }) => {
         }
 
         const overlays = getLocalStorageOverlays();
+        const storedRenames = localStorage.getItem('madaneeyam_renames');
+        const renames = storedRenames ? JSON.parse(storedRenames) : {};
+
         let merged = rawList.map(f => {
           const overlay = overlays[f.relPath] || {};
-          return { ...f, ...overlay };
+          const mappedPerson = renames[f.person] || f.person;
+          return { ...f, ...overlay, person: mappedPerson };
         });
 
         // Filter client-side
@@ -589,6 +602,16 @@ export const AppProvider = ({ children }) => {
     return false;
   };
 
+  // Update people list dynamically when stats are fetched
+  useEffect(() => {
+    if (stats?.personStats) {
+      const keys = Object.keys(stats.personStats).filter(Boolean);
+      if (keys.length > 0) {
+        setPeopleList(keys.sort((a, b) => a.localeCompare(b)));
+      }
+    }
+  }, [stats]);
+
   // Trigger reload on filter/search changes
   useEffect(() => {
     if (user) {
@@ -609,6 +632,83 @@ export const AppProvider = ({ children }) => {
       fetchUsers();
     }
   }, [fetchUsers, user]);
+
+  // Rename person/folder (Admin only)
+  const renamePerson = async (oldName, newName) => {
+    if (user?.role !== 'admin') {
+      alert("Access Denied: Only Administrators can rename folders.");
+      return false;
+    }
+    if (!newName || !newName.trim()) {
+      alert("Folder name cannot be empty.");
+      return false;
+    }
+
+    if (isStaticMode) {
+      try {
+        const storedRenames = localStorage.getItem('madaneeyam_renames');
+        const renames = storedRenames ? JSON.parse(storedRenames) : {};
+        renames[oldName] = newName.trim();
+        localStorage.setItem('madaneeyam_renames', JSON.stringify(renames));
+
+        // Also update local storage users assignments
+        const storedUsersData = localStorage.getItem('madaneeyam_users');
+        if (storedUsersData) {
+          const storedUsers = JSON.parse(storedUsersData);
+          const updatedUsers = storedUsers.map(u => {
+            if (u.assignedPerson === oldName) {
+              return { ...u, assignedPerson: newName.trim() };
+            }
+            return u;
+          });
+          localStorage.setItem('madaneeyam_users', JSON.stringify(updatedUsers));
+        }
+
+        // Refresh dynamic UI
+        if (user.assignedPerson === oldName) {
+          const updatedUser = { ...user, assignedPerson: newName.trim() };
+          setUser(updatedUser);
+          localStorage.setItem('madaneeyam_current_user', JSON.stringify(updatedUser));
+        }
+
+        await fetchStats();
+        await fetchFiles();
+        await fetchUsers();
+        return true;
+      } catch (e) {
+        console.error("Failed to rename person in static mode:", e);
+        return false;
+      }
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/people/rename`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldName, newName: newName.trim() })
+      });
+      if (res.ok) {
+        // If current admin user's assigned folder was this renamed folder, update user state
+        if (user.assignedPerson === oldName) {
+          const updatedUser = { ...user, assignedPerson: newName.trim() };
+          setUser(updatedUser);
+          localStorage.setItem('madaneeyam_current_user', JSON.stringify(updatedUser));
+        }
+
+        await fetchUsers();
+        await syncFiles(); // Rescans on backend, updates metadata, calls fetchStats/fetchFiles
+        return true;
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to rename folder.");
+        return false;
+      }
+    } catch (e) {
+      console.error("Error renaming folder:", e);
+      alert("Network error. Could not connect to backend server.");
+      return false;
+    }
+  };
 
   // Helper to construct download link
   const getDownloadUrl = (relPath) => {
@@ -650,7 +750,9 @@ export const AppProvider = ({ children }) => {
       uploadFile,
       renameFile,
       deleteFile,
-      getDownloadUrl
+      getDownloadUrl,
+      peopleList,
+      renamePerson
     }}>
       {children}
     </AppContext.Provider>
