@@ -168,37 +168,76 @@ app.post('/api/auth/login', async (req, res) => {
   res.json({ success: true, user: { email: user.email, role: user.role } });
 });
 
-// Load metadata database
+// Load only the custom fields from the local metadata file
+function loadLocalMetadataOnly() {
+  if (fs.existsSync(METADATA_PATH)) {
+    try {
+      const data = fs.readFileSync(METADATA_PATH, 'utf8');
+      const fullDb = JSON.parse(data);
+      const custom = {};
+      Object.keys(fullDb).forEach(key => {
+        custom[key] = {
+          status: fullDb[key].status,
+          notes: fullDb[key].notes,
+          tags: fullDb[key].tags || []
+        };
+      });
+      return custom;
+    } catch (e) {
+      console.error("Error reading local metadata file:", e);
+      return {};
+    }
+  }
+  return {};
+}
+
+// Load metadata database (merges scanned disk files with Supabase or local custom fields)
 async function loadMetadata() {
+  // 1. Scan disk files
+  const diskFiles = getFilesFromDisk();
+  
+  // 2. Load custom user fields from Supabase or local file
+  let dbCustom = {};
   if (supabase) {
     try {
       const { data, error } = await supabase.from('file_metadata').select('*');
       if (error) throw error;
-      const db = {};
       data.forEach(item => {
-        db[item.rel_path] = {
-          relPath: item.rel_path,
+        dbCustom[item.rel_path] = {
           status: item.status,
           notes: item.notes,
           tags: item.tags || []
         };
       });
-      return db;
     } catch (e) {
       console.error("Error reading metadata from Supabase, falling back to local files:", e);
+      dbCustom = loadLocalMetadataOnly();
     }
+  } else {
+    dbCustom = loadLocalMetadataOnly();
   }
 
-  if (fs.existsSync(METADATA_PATH)) {
-    try {
-      const data = fs.readFileSync(METADATA_PATH, 'utf8');
-      return JSON.parse(data);
-    } catch (e) {
-      console.error("Error reading metadata file, initializing empty:", e);
-      return {};
-    }
-  }
-  return {};
+  // 3. Merge disk files with custom user fields
+  const db = {};
+  diskFiles.forEach(file => {
+    const key = file.relPath;
+    const custom = dbCustom[key] || {};
+    db[key] = {
+      relPath: file.relPath,
+      person: file.person,
+      category: file.category,
+      subcategory: file.subcategory,
+      filename: file.filename,
+      extension: file.extension,
+      sizeBytes: file.sizeBytes,
+      modifiedTime: file.modifiedTime,
+      status: custom.status || 'Todo',
+      notes: custom.notes || '',
+      tags: custom.tags || []
+    };
+  });
+
+  return db;
 }
 
 // Save metadata database
