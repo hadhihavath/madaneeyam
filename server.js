@@ -4,6 +4,7 @@ const morgan = require('morgan');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+require('dotenv').config(); // Load environment variables from .env
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -23,8 +24,45 @@ if (!fs.existsSync(BASE_DIR)) {
 }
 fs.mkdirSync(path.dirname(METADATA_PATH), { recursive: true });
 
+// Initialize Supabase client
+const { createClient } = require('@supabase/supabase-js');
+const ws = require('ws');
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+let supabase = null;
+if (supabaseUrl && supabaseKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey, {
+      realtime: {
+        transport: ws
+      }
+    });
+    console.log("Supabase client initialized successfully!");
+  } catch (err) {
+    console.error("Failed to initialize Supabase client:", err);
+  }
+} else {
+  console.log("Supabase credentials missing or incomplete. Running in local JSON storage mode.");
+}
+
 // Load users database
-function loadUsers() {
+async function loadUsers() {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from('users').select('*');
+      if (error) throw error;
+      return data.map(u => ({
+        email: u.email,
+        password: u.password,
+        role: u.role,
+        assignedPerson: u.assigned_person || ''
+      }));
+    } catch (e) {
+      console.error("Error reading users from Supabase, falling back to local files:", e);
+    }
+  }
+
   if (fs.existsSync(USERS_PATH)) {
     try {
       const data = fs.readFileSync(USERS_PATH, 'utf8');
@@ -38,7 +76,23 @@ function loadUsers() {
 }
 
 // Save users database
-function saveUsers(users) {
+async function saveUsers(users) {
+  if (supabase) {
+    try {
+      const dbUsers = users.map(u => ({
+        email: u.email,
+        password: u.password,
+        role: u.role,
+        assigned_person: u.assignedPerson || ''
+      }));
+      const { error } = await supabase.from('users').upsert(dbUsers);
+      if (error) throw error;
+      return;
+    } catch (e) {
+      console.error("Error writing users to Supabase, saving to local files:", e);
+    }
+  }
+
   try {
     fs.writeFileSync(USERS_PATH, JSON.stringify(users, null, 2), 'utf8');
   } catch (e) {
@@ -47,8 +101,8 @@ function saveUsers(users) {
 }
 
 // Seed admin credentials
-function seedAdmin() {
-  const users = loadUsers();
+async function seedAdmin() {
+  const users = await loadUsers();
   const adminEmails = ['hadihavath921@gmail.com', 'hadhihavath921@gmail.com'];
   let updated = false;
 
@@ -66,21 +120,18 @@ function seedAdmin() {
   });
 
   if (updated) {
-    saveUsers(users);
+    await saveUsers(users);
   }
 }
 
-// Perform admin seeding
-seedAdmin();
-
 // API: Register a user
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
-  const users = loadUsers();
+  const users = await loadUsers();
   const normalizedEmail = email.trim().toLowerCase();
   
   if (users.some(u => u.email.toLowerCase() === normalizedEmail)) {
@@ -94,19 +145,19 @@ app.post('/api/auth/register', (req, res) => {
   };
 
   users.push(newUser);
-  saveUsers(users);
+  await saveUsers(users);
 
   res.status(201).json({ success: true, user: { email: newUser.email, role: newUser.role } });
 });
 
 // API: Login a user
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
-  const users = loadUsers();
+  const users = await loadUsers();
   const normalizedEmail = email.trim().toLowerCase();
 
   const user = users.find(u => u.email.toLowerCase() === normalizedEmail && u.password === password);
@@ -117,8 +168,27 @@ app.post('/api/auth/login', (req, res) => {
   res.json({ success: true, user: { email: user.email, role: user.role } });
 });
 
-// Load metadata from disk
-function loadMetadata() {
+// Load metadata database
+async function loadMetadata() {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from('file_metadata').select('*');
+      if (error) throw error;
+      const db = {};
+      data.forEach(item => {
+        db[item.rel_path] = {
+          relPath: item.rel_path,
+          status: item.status,
+          notes: item.notes,
+          tags: item.tags || []
+        };
+      });
+      return db;
+    } catch (e) {
+      console.error("Error reading metadata from Supabase, falling back to local files:", e);
+    }
+  }
+
   if (fs.existsSync(METADATA_PATH)) {
     try {
       const data = fs.readFileSync(METADATA_PATH, 'utf8');
@@ -131,8 +201,24 @@ function loadMetadata() {
   return {};
 }
 
-// Save metadata to disk
-function saveMetadata(metadata) {
+// Save metadata database
+async function saveMetadata(metadata) {
+  if (supabase) {
+    try {
+      const items = Object.values(metadata).map(item => ({
+        rel_path: item.relPath,
+        status: item.status,
+        notes: item.notes,
+        tags: item.tags || []
+      }));
+      const { error } = await supabase.from('file_metadata').upsert(items);
+      if (error) throw error;
+      return;
+    } catch (e) {
+      console.error("Error writing metadata to Supabase, saving to local files:", e);
+    }
+  }
+
   try {
     fs.writeFileSync(METADATA_PATH, JSON.stringify(metadata, null, 2), 'utf8');
   } catch (e) {
@@ -159,7 +245,6 @@ function scanDirectory(basePath) {
         // Parts: [Person, Category, Subcategory/Filename, ...]
         const person = parts[0] || '';
         const category = parts[1] || '';
-        const subcategory = parts.length > 3 ? parts.slice(2, -1).join('/') : (parts.length === 3 ? parts[2] : '');
         const filename = parts[parts.length - 1];
         const ext = path.extname(filename).toLowerCase();
         
@@ -167,7 +252,7 @@ function scanDirectory(basePath) {
         if (filename.startsWith('~$') || filename.startsWith('.')) return;
         if (ext === '.docx') return;
 
-        fileList.append = fileList.push({
+        fileList.push({
           relPath,
           person,
           category,
@@ -187,15 +272,14 @@ function scanDirectory(basePath) {
 
 // Refactored walk directory to extract category & subcategory correctly
 function getFilesFromDisk() {
-  const diskFiles = scanDirectory(BASE_DIR);
-  return diskFiles;
+  return scanDirectory(BASE_DIR);
 }
 
 // Synchronize filesystem and metadata.json
-function syncFilesystem() {
+async function syncFilesystem() {
   console.log("Synchronizing filesystem with database...");
   const diskFiles = getFilesFromDisk();
-  const db = loadMetadata();
+  const db = await loadMetadata();
   const updatedDb = {};
 
   diskFiles.forEach(file => {
@@ -232,13 +316,20 @@ function syncFilesystem() {
 
   // Keep a record of deleted files or clean them up?
   // We clean them up since they are deleted from disk.
-  saveMetadata(updatedDb);
+  await saveMetadata(updatedDb);
   console.log(`Synced successfully. Total files in DB: ${Object.keys(updatedDb).length}`);
   return updatedDb;
 }
 
-// Perform initial sync
-let cachedMetadata = syncFilesystem();
+// Global cached memory copy
+let cachedMetadata = {};
+
+// Initialize server tasks asynchronously
+async function initializeServer() {
+  await seedAdmin();
+  cachedMetadata = await syncFilesystem();
+}
+initializeServer();
 
 // Helper to check if file path is valid and within BASE_DIR
 function getSafePath(relativePath) {
@@ -251,8 +342,8 @@ function getSafePath(relativePath) {
 }
 
 // API: Get stats
-app.get('/api/stats', (req, res) => {
-  const db = loadMetadata();
+app.get('/api/stats', async (req, res) => {
+  const db = await loadMetadata();
   const files = Object.values(db);
   
   const total = files.length;
@@ -312,8 +403,8 @@ app.get('/api/stats', (req, res) => {
 });
 
 // API: Get files (paginated, filtered, searched)
-app.get('/api/files', (req, res) => {
-  const db = loadMetadata();
+app.get('/api/files', async (req, res) => {
+  const db = await loadMetadata();
   let files = Object.values(db);
 
   const { person, category, status, type, search } = req.query;
@@ -370,13 +461,13 @@ app.get('/api/files', (req, res) => {
 });
 
 // API: Update file metadata (status, notes)
-app.put('/api/files', (req, res) => {
+app.put('/api/files', async (req, res) => {
   const { relPath, status, notes, tags } = req.body;
   if (!relPath) {
     return res.status(400).json({ error: "Missing file relative path" });
   }
 
-  const db = loadMetadata();
+  const db = await loadMetadata();
   if (!db[relPath]) {
     return res.status(404).json({ error: "File not found in database" });
   }
@@ -386,13 +477,13 @@ app.put('/api/files', (req, res) => {
   if (tags !== undefined) db[relPath].tags = tags;
   db[relPath].lastUpdated = new Date();
 
-  saveMetadata(db);
+  await saveMetadata(db);
   res.json({ success: true, file: db[relPath] });
 });
 
 // API: Sync files manually
-app.post('/api/files/sync', (req, res) => {
-  const updatedDb = syncFilesystem();
+app.post('/api/files/sync', async (req, res) => {
+  const updatedDb = await syncFilesystem();
   res.json({ success: true, count: Object.keys(updatedDb).length });
 });
 
@@ -454,8 +545,6 @@ const storage = multer.diskStorage({
     cb(null, destPath);
   },
   filename: function (req, file, cb) {
-    // Keep the original filename
-    // Express Multer handles UTF-8 filenames if we decode them correctly
     const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
     cb(null, originalName);
   }
@@ -464,18 +553,18 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // API: Upload file
-app.post('/api/files/upload', upload.single('file'), (req, res) => {
+app.post('/api/files/upload', upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
   }
   
   // Rescan filesystem to update database
-  syncFilesystem();
+  await syncFilesystem();
   res.json({ success: true, message: "File uploaded and database updated successfully" });
 });
 
 // API: Rename file
-app.post('/api/files/rename', (req, res) => {
+app.post('/api/files/rename', async (req, res) => {
   const { relPath, newFilename } = req.body;
   if (!relPath || !newFilename) {
     return res.status(400).json({ error: "Missing relPath or newFilename" });
@@ -499,8 +588,7 @@ app.post('/api/files/rename', (req, res) => {
   try {
     fs.renameSync(safeOldPath, safeNewPath);
     
-    // Update metadata JSON key to preserve user input
-    const db = loadMetadata();
+    const db = await loadMetadata();
     if (db[relPath]) {
       const fileData = { ...db[relPath] };
       delete db[relPath];
@@ -510,9 +598,9 @@ app.post('/api/files/rename', (req, res) => {
       fileData.lastUpdated = new Date();
       db[newRelPath] = fileData;
       
-      saveMetadata(db);
+      await saveMetadata(db);
     } else {
-      syncFilesystem();
+      await syncFilesystem();
     }
 
     res.json({ success: true, newRelPath });
@@ -523,7 +611,7 @@ app.post('/api/files/rename', (req, res) => {
 });
 
 // API: Delete file
-app.delete('/api/files/delete', (req, res) => {
+app.delete('/api/files/delete', async (req, res) => {
   const { relPath } = req.body;
   if (!relPath) {
     return res.status(400).json({ error: "Missing relPath" });
@@ -537,11 +625,10 @@ app.delete('/api/files/delete', (req, res) => {
   try {
     fs.unlinkSync(safePath);
     
-    // Remove from metadata database
-    const db = loadMetadata();
+    const db = await loadMetadata();
     if (db[relPath]) {
       delete db[relPath];
-      saveMetadata(db);
+      await saveMetadata(db);
     }
 
     res.json({ success: true, message: "File deleted successfully" });
@@ -552,8 +639,8 @@ app.delete('/api/files/delete', (req, res) => {
 });
 
 // API: Get all users (Admin only)
-app.get('/api/users', (req, res) => {
-  const users = loadUsers();
+app.get('/api/users', async (req, res) => {
+  const users = await loadUsers();
   const safeUsers = users.map(u => ({
     email: u.email,
     role: u.role,
@@ -563,25 +650,25 @@ app.get('/api/users', (req, res) => {
 });
 
 // API: Assign user to Person folder (Admin only)
-app.post('/api/users/assign', (req, res) => {
+app.post('/api/users/assign', async (req, res) => {
   const { email, assignedPerson } = req.body;
   if (!email) {
     return res.status(400).json({ error: "Email is required" });
   }
 
-  const users = loadUsers();
+  const users = await loadUsers();
   const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
 
   user.assignedPerson = assignedPerson || '';
-  saveUsers(users);
+  await saveUsers(users);
   res.json({ success: true, user: { email: user.email, role: user.role, assignedPerson: user.assignedPerson } });
 });
 
 // API: Rename a person folder (Admin only)
-app.post('/api/people/rename', (req, res) => {
+app.post('/api/people/rename', async (req, res) => {
   const { oldName, newName } = req.body;
   if (!oldName || !newName) {
     return res.status(400).json({ error: "Missing oldName or newName" });
@@ -603,11 +690,9 @@ app.post('/api/people/rename', (req, res) => {
   }
 
   try {
-    // Rename directory on disk
     fs.renameSync(oldPath, newPath);
 
-    // Update metadata.json database keys and values
-    const db = loadMetadata();
+    const db = await loadMetadata();
     const updatedDb = {};
     Object.keys(db).forEach(key => {
       if (key.startsWith(oldName + '/')) {
@@ -620,10 +705,9 @@ app.post('/api/people/rename', (req, res) => {
         updatedDb[key] = db[key];
       }
     });
-    saveMetadata(updatedDb);
+    await saveMetadata(updatedDb);
 
-    // Update users.json assignments
-    const users = loadUsers();
+    const users = await loadUsers();
     let usersUpdated = false;
     users.forEach(u => {
       if (u.assignedPerson === oldName) {
@@ -632,11 +716,10 @@ app.post('/api/people/rename', (req, res) => {
       }
     });
     if (usersUpdated) {
-      saveUsers(users);
+      await saveUsers(users);
     }
 
-    // Force filesystem scan cache refresh
-    cachedMetadata = syncFilesystem();
+    cachedMetadata = await syncFilesystem();
 
     res.json({ success: true, message: `Successfully renamed folder '${oldName}' to '${newName}'` });
   } catch (err) {
@@ -644,7 +727,6 @@ app.post('/api/people/rename', (req, res) => {
     res.status(500).json({ error: "Failed to rename folder on disk" });
   }
 });
-
 
 // Serve frontend build static files in production
 app.use('/madaneeyam', express.static(path.join(__dirname, 'client', 'dist')));
@@ -655,7 +737,6 @@ app.get('/', (req, res) => {
 });
 
 app.get('*', (req, res) => {
-  // If the request is for a static file that is missing, return 404 instead of index.html
   if (path.extname(req.path)) {
     return res.status(404).send("File not found");
   }
