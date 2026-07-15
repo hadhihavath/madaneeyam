@@ -314,10 +314,23 @@ export const ViewerModal = ({ file, onClose }) => {
               title={file.filename}
             />
           ) : isDocx ? (
-            <div style={{ flexGrow: 1, overflow: 'auto', padding: '24px', display: 'flex', justifyContent: 'center', background: '#e0e0e0' }}>
+            <div style={{ flexGrow: 1, overflow: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#e0e0e0' }}>
+              {loading && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', flexDirection: 'column', gap: '16px', color: 'var(--text-muted)' }}>
+                  <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: '2rem', color: 'var(--color-gold)' }}></i>
+                  <span>Parsing Word document layout...</span>
+                </div>
+              )}
+              {error && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', flexDirection: 'column', gap: '16px', padding: '20px', textAlign: 'center', color: '#ff4d4d' }}>
+                  <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: '2.5rem' }}></i>
+                  <p style={{ fontWeight: '500' }}>{error}</p>
+                </div>
+              )}
               <div 
                 ref={containerRef}
                 style={{ 
+                  display: loading || error ? 'none' : 'block',
                   background: '#ffffff', 
                   color: '#333333', 
                   boxShadow: '0 4px 20px rgba(0,0,0,0.15)', 
@@ -328,20 +341,7 @@ export const ViewerModal = ({ file, onClose }) => {
                   padding: '40px',
                   boxSizing: 'border-box'
                 }}
-              >
-                {loading && (
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', flexDirection: 'column', gap: '16px', color: 'var(--text-muted)' }}>
-                    <i className="fa-solid fa-circle-notch fa-spin" style={{ fontSize: '2rem', color: 'var(--color-gold)' }}></i>
-                    <span>Parsing Word document layout...</span>
-                  </div>
-                )}
-                {error && (
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', flexDirection: 'column', gap: '16px', padding: '20px', textAlign: 'center', color: '#ff4d4d' }}>
-                    <i className="fa-solid fa-triangle-exclamation" style={{ fontSize: '2.5rem' }}></i>
-                    <p style={{ fontWeight: '500' }}>{error}</p>
-                  </div>
-                )}
-              </div>
+              />
             </div>
           ) : (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', flexDirection: 'column', gap: '16px', color: 'var(--text-secondary)' }}>
